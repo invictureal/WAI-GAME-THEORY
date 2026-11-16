@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capacity & Pricing Oligopoly — Live Classroom Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+tailwind.config = { darkMode:'class', theme:{ extend:{ fontFamily:{ sans:['Inter','sans-serif'] } } } };
+</script>
+<style>
+  *{-webkit-tap-highlight-color:transparent}
+  body{font-family:'Inter',sans-serif}
+  .gradient-text{background:linear-gradient(135deg,#818cf8,#34d399);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  @keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .animate-slide-in{animation:slideIn .32s cubic-bezier(.22,1,.36,1)}
+  .animate-fade-up{animation:fadeUp .35s ease-out}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:rgba(15,23,42,.5)}
+  ::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:#475569}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:8px;border-radius:9999px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;border-radius:50%;background:#818cf8;border:3px solid #fff;box-shadow:0 0 0 4px rgba(129,140,248,.25),0 4px 12px rgba(0,0,0,.4);cursor:pointer;transition:transform .15s,box-shadow .15s}
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12);box-shadow:0 0 0 6px rgba(129,140,248,.35),0 6px 16px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#818cf8;border:3px solid #fff;box-shadow:0 0 0 4px rgba(129,140,248,.25),0 4px 12px rgba(0,0,0,.4);cursor:pointer}
+  .cap-card{cursor:pointer;transition:all .2s cubic-bezier(.22,1,.36,1)}
+  .cap-card.active{border-color:#34d399;background:rgba(16,185,129,.1);box-shadow:0 0 0 3px rgba(52,211,153,.25),0 8px 24px rgba(16,185,129,.15);transform:translateY(-2px)}
+  .cap-card:not(.active):hover{border-color:#475569;transform:translateY(-1px)}
+  .phase-pill{display:inline-flex;align-items:center;gap:.375rem;padding:.25rem .75rem;border-radius:9999px;font-size:.75rem;font-weight:600;letter-spacing:.025em;text-transform:uppercase}
+  .phase-1{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+  .phase-2{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.3)}
+  .phase-3{background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(16,185,129,.3)}
+  .btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);transition:all .2s}
+  .btn-primary:hover{background:linear-gradient(135deg,#818cf8,#6366f1);transform:translateY(-1px);box-shadow:0 8px 24px rgba(99,102,241,.4)}
+  .btn-primary:active{transform:translateY(0)}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);transition:all .2s}
+  .btn-danger:hover{background:linear-gradient(135deg,#f87171,#ef4444);transform:translateY(-1px);box-shadow:0 8px 24px rgba(239,68,68,.4)}
+  .btn-danger:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-success{background:linear-gradient(135deg,#10b981,#059669);transition:all .2s}
+  .btn-success:hover{background:linear-gradient(135deg,#34d399,#10b981);transform:translateY(-1px);box-shadow:0 8px 24px rgba(16,185,129,.4)}
+  .glass-card{background:rgba(15,23,42,.55);backdrop-filter:blur(12px);border:1px solid rgba(51,65,85,.6);border-radius:1rem}
+  .pulse-dot{animation:pulse-dot 2s infinite}
+  @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+  .toggle{position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0}
+  .toggle input{opacity:0;width:0;height:0}
+  .toggle .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#475569;transition:.3s;border-radius:9999px}
+  .toggle .slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:#fff;transition:.3s;border-radius:50%}
+  .toggle input:checked + .slider{background:#ef4444}
+  .toggle input:checked + .slider:before{transform:translateX(22px)}
+</style>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 min-h-screen antialiased">
+
+<!-- ================= LANDING ================= -->
+<section id="view-landing" class="min-h-screen flex flex-col">
+  <header class="px-6 py-8 flex items-center gap-3">
+    <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+      <i data-lucide="trending-up" class="w-6 h-6 text-white"></i>
+    </div>
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">Capacity &amp; Pricing <span class="gradient-text">Oligopoly</span></h1>
+      <p class="text-xs text-slate-400">Live Classroom Simulation · Operations Management &amp; Game Theory</p>
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center px-4 pb-12">
+    <div class="w-full max-w-5xl grid md:grid-cols-2 gap-6 animate-fade-up">
+
+      <!-- Student Card -->
+      <div class="glass-card p-7 sm:p-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+            <i data-lucide="user-round" class="w-5 h-5 text-emerald-400"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold">Join a Session</h2>
+            <p class="text-xs text-slate-400">Enter the code shared by your instructor</p>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Game Code</label>
+            <input id="join-code" type="text" placeholder="OM-492" maxlength="6"
+              class="w-full px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 outline-none text-lg font-mono font-bold tracking-widest uppercase placeholder:text-slate-600 transition">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Your Name</label>
+              <input id="join-name" type="text" placeholder="Alex" maxlength="40"
+                class="w-full px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 outline-none text-sm transition">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Roll No.</label>
+              <input id="join-roll" type="text" placeholder="R-001" maxlength="20"
+                class="w-full px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 outline-none text-sm transition">
+            </div>
+          </div>
+          <button id="join-btn" class="btn-primary w-full py-3.5 rounded-xl font-semibold text-white flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i> Join Game
+          </button>
+        </div>
+      </div>
+
+      <!-- Instructor Card -->
+      <div class="glass-card p-7 sm:p-8">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+            <i data-lucide="presentation" class="w-5 h-5 text-indigo-400"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold">Host a Session</h2>
+            <p class="text-xs text-slate-400">Create a new game or resume an existing one</p>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <button id="create-btn" class="btn-primary w-full py-3.5 rounded-xl font-semibold text-white flex items-center justify-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Create New Game
+          </button>
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700/60"></div></div>
+            <div class="relative flex justify-center text-xs uppercase tracking-wider"><span class="bg-slate-900/80 px-3 text-slate-500">or resume</span></div>
+          </div>
+          <div class="flex gap-2">
+            <input id="resume-code" type="text" placeholder="OM-492" maxlength="6"
+              class="flex-1 px-4 py-3 rounded-xl bg-slate-900/70 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 outline-none font-mono font-bold tracking-widest uppercase placeholder:text-slate-600 transition">
+            <button id="resume-btn" class="px-5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 font-semibold text-sm transition flex items-center gap-2">
+              <i data-lucide="arrow-right" class="w-4 h-4"></i> Open
+            </button>
+          </div>
+          <div class="pt-2 text-xs text-slate-500 leading-relaxed flex gap-2">
+            <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+            <span>No PIN required. Save your Teacher Link after creating a game to re-enter the console from any device.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  <footer class="text-center text-xs text-slate-600 pb-6">Operations Management · Game Theory · Live Multiplayer</footer>
+</section>
+
+<!-- ================= STUDENT COCKPIT ================= -->
+<section id="view-student" class="hidden min-h-screen">
+  <div id="student-header"></div>
+  <main id="student-main" class="max-w-5xl mx-auto px-4 py-6 space-y-5"></main>
+</section>
+
+<!-- ================= INSTRUCTOR CONSOLE ================= -->
+<section id="view-instructor" class="hidden min-h-screen">
+  <div id="instructor-header"></div>
+  <main id="instructor-main" class="max-w-7xl mx-auto px-4 py-6 space-y-5"></main>
+</section>
+
+<!-- ================= TOASTS ================= -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 items-end"></div>
+
+<script>
+/* ============================================================================
+   FIREBASE CONFIG — SDM Simulation Project
+   ============================================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAkkJhtXJa5GaA1truFtjW4A0xuxX3NaOo",
+  authDomain: "sdm-simulation.firebaseapp.com",
+  databaseURL: "https://sdm-simulation-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sdm-simulation",
+  storageBucket: "sdm-simulation.firebasestorage.app",
+  messagingSenderId: "62337251756",
+  appId: "1:62337251756:web:aab8dd642057669fbee209",
+  measurementId: "G-CLC6NHHRJS"
+};
+/* ============================================================================ */
+
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith("YOUR_")) {
+  document.body.innerHTML = `<div class="min-h-screen flex items-center justify-center p-8">
+    <div class="glass-card max-w-lg p-8 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="alert-triangle" class="w-7 h-7 text-red-400"></i>
+      </div>
+      <h2 class="text-xl font-bold mb-2">Firebase Not Configured</h2>
+      <p class="text-sm text-slate-400">Open <code class="text-indigo-300 bg-slate-800 px-1.5 py-0.5 rounded">index.html</code> and paste your Firebase Realtime Database credentials into the <code class="text-indigo-300 bg-slate-800 px-1.5 py-0.5 rounded">firebaseConfig</code> block near the top of the script.</p>
+    </div></div>`;
+  lucide.createIcons();
+  throw new Error("Firebase config missing");
+}
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ============================ CONSTANTS ============================ */
+const PRICE_MIN = 10, PRICE_MAX = 50, UNIT_COST = 8;
+const MARKET_SIZE = 600, WALK_AWAY_PRICE = 45;
+const CAPACITIES = { 100: 800, 150: 1300, 200: 1900 };
+const TOTAL_ROUNDS = 8;
+const CHART_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4'];
+
+/* ============================ STATE ============================ */
+const state = {
+  currentView: 'landing',
+  gameCode: null,
+  isHost: false,
+  playerId: null,
+  room: null,
+  studentLocal: { round: null, price: 30, capacity: 150, submitted: false },
+  lastRenderedRound: null,
+  chartInstances: {},
+  chartHashes: {},
+  chatAttachedPod: null,
+  roomListener: null,
+  chatListener: null,
+};
+
+/* ============================ UTILITIES ============================ */
+function toast(msg, type = 'info') {
+  const colors = {
+    info: 'bg-indigo-600 border-indigo-400',
+    success: 'bg-emerald-600 border-emerald-400',
+    error: 'bg-red-600 border-red-400',
+    warn: 'bg-amber-600 border-amber-400',
+  };
+  const icons = { info: 'info', success: 'check-circle', error: 'alert-circle', warn: 'alert-triangle' };
+  const el = document.createElement('div');
+  el.className = `animate-slide-in ${colors[type] || colors.info} border text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 text-sm font-medium max-w-sm`;
+  el.innerHTML = `<i data-lucide="${icons[type] || 'info'}" class="w-4 h-4 flex-shrink-0"></i><span>${esc(msg)}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  lucide.createIcons();
+  setTimeout(() => { el.style.transition = 'all .3s'; el.style.opacity = '0'; el.style.transform = 'translateX(120%)'; setTimeout(() => el.remove(), 320); }, 3200);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fmt(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-IN');
+}
+
+function rupee(n) {
+  if (n == null || isNaN(n)) return '—';
+  return '₹' + Number(n).toLocaleString('en-IN');
+}
+
+function hashData(obj) {
+  try { return JSON.stringify(obj); } catch { return String(Math.random()); }
+}
+
+function randomGameCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = 'OM-';
+  for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+async function uniqueGameCode() {
+  for (let i = 0; i < 10; i++) {
+    const c = randomGameCode();
+    const snap = await db.ref(`rooms/${c}`).once('value');
+    if (!snap.exists()) return c;
+  }
+  throw new Error('Could not generate unique game code');
+}
+
+function getPhase(round) {
+  if (!round || round < 1) return 0;
+  if (round <= 3) return 1;
+  if (round <= 6) return 2;
+  return 3;
+}
+
+function phaseMeta(p) {
+  return {
+    1: { label: 'Blind Market', cls: 'phase-1', icon: 'eye-off', desc: 'Rival actions hidden — you only see your own results.' },
+    2: { label: 'Transparent Market', cls: 'phase-2', icon: 'eye', desc: 'Full pod history unlocked. Study your rivals.' },
+    3: { label: 'Cheap Talk & Shocks', cls: 'phase-3', icon: 'message-circle', desc: 'Pod chat open. Demand shocks possible.' },
+  }[p] || { label: 'Lobby', cls: 'phase-2', icon: 'users', desc: 'Waiting for instructor.' };
+}
+
+function fixedCostFor(cap) { return CAPACITIES[cap] || 1300; }
+
+/* ============================ CHARTS ============================ */
+function updateChart(id, hash, configFn) {
+  if (state.chartInstances[id] && state.chartHashes[id] === hash) return;
+  if (state.chartInstances[id]) { try { state.chartInstances[id].destroy(); } catch {} delete state.chartInstances[id]; }
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  state.chartHashes[id] = hash;
+  state.chartInstances[id] = new Chart(canvas, configFn());
+}
+
+function destroyChart(id) {
+  if (state.chartInstances[id]) { try { state.chartInstances[id].destroy(); } catch {} delete state.chartInstances[id]; delete state.chartHashes[id]; }
+}
+
+function destroyAllCharts() {
+  Object.keys(state.chartInstances).forEach(destroyChart);
+}
+
+const chartOptsBase = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#cbd5e1', font: { family: 'Inter', size: 11 }, usePointStyle: true, padding: 14 } },
+    tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1, titleColor: '#f1f5f9', bodyColor: '#cbd5e1', padding: 10, cornerRadius: 8 }
+  },
+  scales: {
+    x: { ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }, grid: { color: 'rgba(51,65,85,.35)' } },
+    y: { ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } }, grid: { color: 'rgba(51,65,85,.35)' } }
+  }
+};
+
+/* ============================ NAVIGATION ============================ */
+function showView(name) {
+  ['landing', 'student', 'instructor'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== name);
+  });
+  state.currentView = name;
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function setURL(params) {
+  const u = new URL(window.location.href);
+  u.search = '';
+  Object.entries(params).forEach(([k, v]) => { if (v != null) u.searchParams.set(k, v); });
+  window.history.pushState(null, '', u.toString());
+}
+
+/* ============================ ROOM SUBSCRIPTION ============================ */
+function subscribeRoom() {
+  if (state.roomListener) state.roomListener.off();
+  state.roomListener = db.ref(`rooms/${state.gameCode}`);
+  state.roomListener.on('value', snap => {
+    state.room = snap.val();
+    if (!state.room) {
+      toast('This game session no longer exists.', 'error');
+      leaveSession();
+      return;
+    }
+    if (state.isHost) renderInstructor();
+    else renderStudent();
+  });
+}
+
+function leaveSession() {
+  if (state.roomListener) { state.roomListener.off(); state.roomListener = null; }
+  if (state.chatListener) { state.chatListener.off(); state.chatListener = null; }
+  destroyAllCharts();
+  localStorage.removeItem('sim_gameCode');
+  localStorage.removeItem('sim_playerId');
+  localStorage.removeItem('sim_studentName');
+  localStorage.removeItem('sim_rollNumber');
+  state.gameCode = null; state.isHost = false; state.playerId = null; state.room = null;
+  state.studentLocal = { round: null, price: 30, capacity: 150, submitted: false };
+  state.lastRenderedRound = null;
+  state.chatAttachedPod = null;
+  setURL({});
+  renderLanding();
+  showView('landing');
+}
+
+/* ============================ LANDING ============================ */
+function renderLanding(prefill = {}) {
+  const code = prefill.room || '';
+  const jc = document.getElementById('join-code');
+  const rc = document.getElementById('resume-code');
+  if (jc) jc.value = code.toUpperCase();
+  if (rc) rc.value = code.toUpperCase();
+  lucide.createIcons();
+}
+
+async function joinGame() {
+  const code = (document.getElementById('join-code').value || '').trim().toUpperCase();
+  const name = (document.getElementById('join-name').value || '').trim();
+  const roll = (document.getElementById('join-roll').value || '').trim();
+  if (!code || code.length < 4) return toast('Enter a valid game code', 'error');
+  if (!name) return toast('Enter your name', 'error');
+  if (!roll) return toast('Enter your roll number', 'error');
+
+  const btn = document.getElementById('join-btn');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Joining...'; lucide.createIcons();
+
+  try {
+    const snap = await db.ref(`rooms/${code}`).once('value');
+    if (!snap.exists()) throw new Error('Game code not found. Check with your instructor.');
+    const room = snap.val();
+    if (room.status === 'FINISHED') throw new Error('This game has already ended.');
+    if (room.status !== 'LOBBY') throw new Error('This game has already started — joining is closed.');
+
+    const playerId = 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    await db.ref(`rooms/${code}/players/${playerId}`).set({
+      name, rollNumber: roll, isBot: false, joinedAt: Date.now(), pod: null
+    });
+    localStorage.setItem('sim_gameCode', code);
+    localStorage.setItem('sim_playerId', playerId);
+    localStorage.setItem('sim_studentName', name);
+    localStorage.setItem('sim_rollNumber', roll);
+    enterStudent(code, playerId);
+    toast('Joined! Waiting for instructor to start.', 'success');
+  } catch (e) {
+    toast(e.message || 'Failed to join', 'error');
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="log-in" class="w-4 h-4"></i> Join Game'; lucide.createIcons();
+  }
+}
+
+async function enterStudent(code, playerId) {
+  const snap = await db.ref(`rooms/${code}/players/${playerId}`).once('value');
+  if (!snap.exists()) {
+    localStorage.removeItem('sim_playerId');
+    localStorage.removeItem('sim_gameCode');
+    toast('Your previous session expired. Please rejoin.', 'warn');
+    renderLanding({ room: code });
+    showView('landing');
+    return;
+  }
+  state.gameCode = code; state.playerId = playerId; state.isHost = false;
+  setURL({ room: code });
+  showView('student');
+  subscribeRoom();
+}
+
+async function createGame() {
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Creating...'; lucide.createIcons();
+  try {
+    const code = await uniqueGameCode();
+    await db.ref(`rooms/${code}`).set({
+      status: 'LOBBY', round: 0, demandShock: false, createdAt: Date.now()
+    });
+    enterInstructor(code);
+    toast(`Game ${code} created — share the code!`, 'success');
+  } catch (e) {
+    toast(e.message || 'Failed to create game', 'error');
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="plus-circle" class="w-4 h-4"></i> Create New Game'; lucide.createIcons();
+  }
+}
+
+async function enterInstructor(code) {
+  const snap = await db.ref(`rooms/${code}`).once('value');
+  if (!snap.exists()) { toast('Game not found', 'error'); renderLanding({ room: code }); showView('landing'); return; }
+  state.gameCode = code; state.isHost = true; state.playerId = null;
+  setURL({ room: code, host: '1' });
+  showView('instructor');
+  subscribeRoom();
+}
+
+/* ============================ STUDENT RENDER ============================ */
+function myPod() {
+  if (!state.room || !state.playerId) return null;
+  const p = state.room.players?.[state.playerId];
+  return p ? p.pod : null;
+}
+
+function podMembers(podNum) {
+  if (!state.room?.players) return [];
+  return Object.entries(state.room.players)
+    .filter(([, p]) => p.pod === podNum)
+    .map(([id, p]) => ({ id, ...p }));
+}
+
+function initStateForRound() {
+  const r = state.room;
+  const round = r.round;
+  const existing = r.decisions?.[round]?.[state.playerId];
+  if (existing) {
+    state.studentLocal = { round, price: existing.price, capacity: existing.capacity, submitted: true };
+    return;
+  }
+  const prev = r.decisions?.[round - 1]?.[state.playerId];
+  state.studentLocal = { round, price: prev?.price ?? 30, capacity: prev?.capacity ?? 150, submitted: false };
+}
+
+function myResults() {
+  const out = {};
+  if (!state.room?.results) return out;
+  for (const [r, roundRes] of Object.entries(state.room.results)) {
+    if (roundRes?.[state.playerId]) out[r] = roundRes[state.playerId];
+  }
+  return out;
+}
+
+function cumulativeProfit() {
+  return Object.values(myResults()).reduce((s, r) => s + (r.profit || 0), 0);
+}
+
+function renderStudent() {
+  const r = state.room;
+  if (!r) return;
+  const phase = getPhase(r.round);
+
+  if (r.status === 'LOBBY') {
+    document.getElementById('student-header').innerHTML = `
+      <div class="border-b border-slate-800 bg-slate-950/70 backdrop-blur sticky top-0 z-30">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center"><i data-lucide="user-round" class="w-4 h-4 text-emerald-400"></i></div>
+          <div class="min-w-0">
+            <div class="font-semibold text-sm truncate">${esc(r.players?.[state.playerId]?.name || 'You')}</div>
+            <div class="text-xs text-slate-500">${esc(r.players?.[state.playerId]?.rollNumber || '')} · ${esc(state.gameCode)}</div>
+          </div>
+          <div class="ml-auto phase-pill phase-2"><i data-lucide="users" class="w-3 h-3"></i> Lobby</div>
+        </div>
+      </div>`;
+    document.getElementById('student-main').innerHTML = `
+      <div class="glass-card p-10 text-center animate-fade-up">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center mx-auto mb-5 pulse-dot">
+          <i data-lucide="hourglass" class="w-8 h-8 text-indigo-400"></i>
+        </div>
+        <h2 class="text-xl font-bold mb-2">You're in the lobby</h2>
+        <p class="text-sm text-slate-400 max-w-md mx-auto">Waiting for your instructor to assign pods and start the simulation. Keep this tab open.</p>
+        <div class="mt-6 inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i> ${Object.keys(r.players || {}).length} player${Object.keys(r.players || {}).length === 1 ? '' : 's'} joined
+        </div>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+
+  const pod = myPod();
+  const meta = phaseMeta(phase);
+  const totalProfit = cumulativeProfit();
+
+  /* Header */
+  document.getElementById('student-header').innerHTML = `
+    <div class="border-b border-slate-800 bg-slate-950/70 backdrop-blur sticky top-0 z-30">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div class="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center"><i data-lucide="user-round" class="w-4 h-4 text-emerald-400"></i></div>
+        <div class="min-w-0">
+          <div class="font-semibold text-sm truncate">${esc(r.players?.[state.playerId]?.name || 'You')}</div>
+          <div class="text-xs text-slate-500">${esc(r.players?.[state.playerId]?.rollNumber || '')} · Pod #${pod ?? '—'}</div>
+        </div>
+        <div class="ml-auto flex items-center gap-2 flex-wrap">
+          <span class="phase-pill ${meta.cls}"><i data-lucide="${meta.icon}" class="w-3 h-3"></i>${meta.label}</span>
+          <span class="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-semibold">Round ${r.round} / ${TOTAL_ROUNDS}</span>
+          <span class="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-bold text-emerald-300">${rupee(totalProfit)}</span>
+        </div>
+      </div>
+      <div class="max-w-5xl mx-auto px-4 pb-2 -mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+        <i data-lucide="info" class="w-3 h-3"></i>${meta.desc}
+        ${r.demandShock ? '<span class="ml-2 px-2 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/30 font-bold">DEMAND SHOCK −30%</span>' : ''}
+      </div>
+    </div>`;
+
+  const main = document.getElementById('student-main');
+  const phaseChanged = state.lastRenderedRound !== r.round;
+
+  /* If round changed, rebuild the whole main area (decision console included) */
+  if (phaseChanged) {
+    state.lastRenderedRound = r.round;
+    initStateForRound();
+    main.innerHTML = studentMainHTML();
+    wireDecisionConsole();
+    if (phase >= 2) attachChat(pod);
+    updateCalculator();
+    updateLockInButton();
+  } else {
+    /* Only update dynamic bits */
+    updateCalculator();
+    updateLockInButton();
+  }
+
+  /* Charts (hash-guarded) */
+  renderStudentCharts(phase, pod);
+
+  /* Ledger (safe to rebuild) */
+  const ledgerEl = document.getElementById('student-ledger');
+  if (ledgerEl) ledgerEl.innerHTML = ledgerHTML(phase, pod);
+
+  /* FINISHED banner */
+  if (r.status === 'FINISHED') {
+    const banner = document.getElementById('finished-banner');
+    if (banner) banner.classList.remove('hidden');
+  }
+
+  lucide.createIcons();
+}
+
+function studentMainHTML() {
+  const r = state.room;
+  const phase = getPhase(r.round);
+  const finished = r.status === 'FINISHED';
+  return `
+    ${finished ? `<div id="finished-banner" class="glass-card p-5 border-emerald-500/40 bg-emerald-500/5 flex items-center gap-3 animate-fade-up">
+      <i data-lucide="trophy" class="w-6 h-6 text-emerald-400"></i>
+      <div><div class="font-bold text-emerald-300">Simulation complete</div><div class="text-xs text-slate-400">Final cumulative profit: <strong class="text-white">${rupee(cumulativeProfit())}</strong></div></div>
+    </div>` : ''}
+
+    <!-- Decision Console -->
+    <div class="glass-card p-5 sm:p-6 animate-fade-up">
+      <div class="flex items-center gap-2 mb-4">
+        <i data-lucide="sliders-horizontal" class="w-5 h-5 text-indigo-400"></i>
+        <h3 class="font-bold text-base">Your Decision — Round ${r.round}</h3>
+        <span id="submitted-badge" class="ml-auto text-xs font-semibold"></span>
+      </div>
+
+      <div class="mb-6">
+        <div class="flex items-baseline justify-between mb-2">
+          <label class="text-sm font-semibold text-slate-300">Unit Price</label>
+          <div class="text-2xl font-black gradient-text" id="price-display">₹30</div>
+        </div>
+        <input id="price-slider" type="range" min="${PRICE_MIN}" max="${PRICE_MAX}" step="1" value="${state.studentLocal.price}" class="w-full">
+        <div class="flex justify-between text-[10px] text-slate-500 mt-1"><span>₹${PRICE_MIN}</span><span>Unit cost ₹${UNIT_COST}</span><span>₹${PRICE_MAX}</span></div>
+      </div>
+
+      <div class="mb-6">
+        <label class="text-sm font-semibold text-slate-300 mb-2 block">Capacity Tier</label>
+        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+          ${[100, 150, 200].map(cap => `
+            <div class="cap-card ${state.studentLocal.capacity === cap ? 'active' : ''} rounded-xl border border-slate-700 bg-slate-900/50 p-3 text-center" data-capacity="${cap}">
+              <div class="text-lg font-black">${cap}</div>
+              <div class="text-[10px] text-slate-400 uppercase tracking-wide">units</div>
+              <div class="text-xs text-amber-300 font-semibold mt-1">${rupee(CAPACITIES[cap])}</div>
+              <div class="text-[10px] text-slate-500">fixed cost</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Live calculator -->
+      <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+        <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-center">
+          <div class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Contribution / unit</div>
+          <div class="text-base sm:text-lg font-bold text-indigo-300 mt-0.5" id="calc-margin">₹22</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-center">
+          <div class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Break-even units</div>
+          <div class="text-base sm:text-lg font-bold text-amber-300 mt-0.5" id="calc-breakeven">60</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-3 text-center">
+          <div class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Max possible profit</div>
+          <div class="text-base sm:text-lg font-bold text-emerald-300 mt-0.5" id="calc-maxprofit">₹2,000</div>
+        </div>
+      </div>
+
+      <button id="lock-in-btn" class="btn-primary w-full py-3.5 rounded-xl font-semibold text-white flex items-center justify-center gap-2" ${finished ? 'disabled' : ''}>
+        <i data-lucide="lock" class="w-4 h-4"></i> Lock In Decision
+      </button>
+      <p class="text-[11px] text-slate-500 text-center mt-2">You can update your decision until the instructor resolves the round.</p>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="glass-card p-4">
+        <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-400"></i> Your Profit &amp; Utilization</h3>
+        <div class="h-56"><canvas id="chart-student-profit"></canvas></div>
+      </div>
+      <div class="glass-card p-4">
+        <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i> Pod Price Comparison ${phase === 1 ? '<span class="text-[10px] text-slate-500 font-normal">(rivals hidden)</span>' : ''}</h3>
+        <div class="h-56"><canvas id="chart-student-prices"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Chat (phase 3 only) -->
+    ${phase >= 3 && !finished ? `
+    <div class="glass-card p-4">
+      <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="message-circle" class="w-4 h-4 text-emerald-400"></i> Pod ${myPod()} Negotiation Chat</h3>
+      <div id="chat-messages" class="h-48 overflow-y-auto space-y-1.5 mb-2 pr-1 text-sm"></div>
+      <div class="flex gap-2">
+        <input id="chat-input" type="text" maxlength="240" placeholder="Type a message…" class="flex-1 px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm">
+        <button id="chat-send" class="px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-sm transition flex items-center gap-1.5"><i data-lucide="send" class="w-3.5 h-3.5"></i>Send</button>
+      </div>
+    </div>` : ''}
+
+    <!-- Ledger -->
+    <div class="glass-card p-4">
+      <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="table" class="w-4 h-4 text-amber-400"></i> Market Ledger</h3>
+      <div id="student-ledger" class="overflow-x-auto"></div>
+    </div>
+  `;
+}
+
+function ledgerHTML(phase, pod) {
+  const r = state.room;
+  const allRounds = Object.keys(r.results || {}).map(Number).sort((a, b) => a - b);
+  if (allRounds.length === 0) return `<div class="text-center text-sm text-slate-500 py-6">No results yet — decisions will appear here after the instructor resolves Round 1.</div>`;
+
+  const members = podMembers(pod);
+  const isTransparent = phase >= 2 || r.status === 'FINISHED';
+
+  if (isTransparent) {
+    let html = `<table class="w-full text-xs sm:text-sm"><thead><tr class="text-slate-400 border-b border-slate-800">
+      <th class="text-left py-2 px-2 font-semibold">Round</th>
+      <th class="text-left py-2 px-2 font-semibold">Firm</th>
+      <th class="text-right py-2 px-2 font-semibold">Price</th>
+      <th class="text-right py-2 px-2 font-semibold">Cap</th>
+      <th class="text-right py-2 px-2 font-semibold">Demand</th>
+      <th class="text-right py-2 px-2 font-semibold">Sales</th>
+      <th class="text-right py-2 px-2 font-semibold">Profit</th>
+    </tr></thead><tbody>`;
+    for (const round of allRounds) {
+      const roundRes = r.results[round];
+      for (const m of members) {
+        const res = roundRes?.[m.id];
+        if (!res) continue;
+        const isMe = m.id === state.playerId;
+        html += `<tr class="${isMe ? 'bg-indigo-500/10' : ''} border-b border-slate-800/50">
+          <td class="py-1.5 px-2 text-slate-400">R${round}</td>
+          <td class="py-1.5 px-2 font-medium ${isMe ? 'text-emerald-300' : 'text-slate-300'}">${esc(m.name)}${isMe ? ' (you)' : ''}${m.isBot ? ' <span class="text-[9px] text-slate-500">BOT</span>' : ''}</td>
+          <td class="py-1.5 px-2 text-right">₹${res.price}</td>
+          <td class="py-1.5 px-2 text-right">${res.capacity}</td>
+          <td class="py-1.5 px-2 text-right">${res.demand}</td>
+          <td class="py-1.5 px-2 text-right">${res.sales}</td>
+          <td class="py-1.5 px-2 text-right font-semibold ${res.profit >= 0 ? 'text-emerald-300' : 'text-red-300'}">${rupee(res.profit)}</td>
+        </tr>`;
+      }
+    }
+    html += `</tbody></table>`;
+    return html;
+  }
+
+  /* Phase 1: only own row */
+  let html = `<table class="w-full text-xs sm:text-sm"><thead><tr class="text-slate-400 border-b border-slate-800">
+    <th class="text-left py-2 px-2 font-semibold">Round</th>
+    <th class="text-right py-2 px-2 font-semibold">Price</th>
+    <th class="text-right py-2 px-2 font-semibold">Cap</th>
+    <th class="text-right py-2 px-2 font-semibold">Demand</th>
+    <th class="text-right py-2 px-2 font-semibold">Sales</th>
+    <th class="text-right py-2 px-2 font-semibold">Profit</th>
+  </tr></thead><tbody>`;
+  for (const round of allRounds) {
+    const res = r.results[round]?.[state.playerId];
+    if (!res) continue;
+    html += `<tr class="border-b border-slate-800/50">
+      <td class="py-1.5 px-2 text-slate-400">R${round}</td>
+      <td class="py-1.5 px-2 text-right">₹${res.price}</td>
+      <td class="py-1.5 px-2 text-right">${res.capacity}</td>
+      <td class="py-1.5 px-2 text-right">${res.demand}</td>
+      <td class="py-1.5 px-2 text-right">${res.sales}</td>
+      <td class="py-1.5 px-2 text-right font-semibold ${res.profit >= 0 ? 'text-emerald-300' : 'text-red-300'}">${rupee(res.profit)}</td>
+    </tr>`;
+  }
+  html += `</tbody></table><p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1"><i data-lucide="eye-off" class="w-3 h-3"></i>Rival data is hidden until Phase 2 (Round 4).</p>`;
+  return html;
+}
+
+function renderStudentCharts(phase, pod) {
+  const r = state.room;
+  const results = myResults();
+  const rounds = Object.keys(results).map(Number).sort((a, b) => a - b);
+  const labels = rounds.map(x => 'R' + x);
+  const profits = rounds.map(x => results[x].profit);
+  const util = rounds.map(x => results[x].capacity ? Math.round((results[x].sales / results[x].capacity) * 100) : 0);
+
+  const profitHash = hashData({ rounds, profits, util, round: r.round });
+  updateChart('chart-student-profit', profitHash, () => ({
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Net Profit (₹)', data: profits, backgroundColor: 'rgba(99,102,241,.7)', borderColor: '#6366f1', borderWidth: 1, borderRadius: 6, yAxisID: 'y' },
+        { label: 'Utilization %', data: util, type: 'line', borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.15)', tension: .35, fill: true, pointBackgroundColor: '#34d399', pointRadius: 4, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      ...chartOptsBase,
+      scales: {
+        ...chartOptsBase.scales,
+        y: { ...chartOptsBase.scales.y, position: 'left', ticks: { ...chartOptsBase.scales.y.ticks, callback: v => '₹' + v } },
+        y1: { position: 'right', min: 0, max: 100, ticks: { color: '#64748b', font: { size: 11 }, callback: v => v + '%' }, grid: { display: false } }
+      }
+    }
+  }));
+
+  /* Pod price comparison */
+  const members = podMembers(pod);
+  const showAll = phase >= 2 || r.status === 'FINISHED';
+  const datasets = (showAll ? members : members.filter(m => m.id === state.playerId)).map((m, i) => {
+    const data = rounds.map(rd => r.results[rd]?.[m.id]?.price ?? null);
+    const isMe = m.id === state.playerId;
+    const color = isMe ? '#34d399' : CHART_COLORS[i % CHART_COLORS.length];
+    return {
+      label: m.name + (isMe ? ' (you)' : '') + (m.isBot ? ' [BOT]' : ''),
+      data,
+      borderColor: color,
+      backgroundColor: color + '22',
+      borderWidth: isMe ? 3 : 2,
+      tension: .35,
+      pointRadius: isMe ? 5 : 3,
+      pointBackgroundColor: color,
+      spanGaps: true
+    };
+  });
+  const priceHash = hashData({ round: r.round, showAll, datasets: datasets.map(d => d.data) });
+  updateChart('chart-student-prices', priceHash, () => ({
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      ...chartOptsBase,
+      scales: {
+        ...chartOptsBase.scales,
+        y: { ...chartOptsBase.scales.y, ticks: { ...chartOptsBase.scales.y.ticks, callback: v => '₹' + v } }
+      }
+    }
+  }));
+}
+
+function updateCalculator() {
+  const price = state.studentLocal.price;
+  const cap = state.studentLocal.capacity;
+  const margin = price - UNIT_COST;
+  const fixed = fixedCostFor(cap);
+  const breakeven = margin > 0 ? Math.ceil(fixed / margin) : '∞';
+  const maxProfit = margin * cap - fixed;
+
+  const pd = document.getElementById('price-display');
+  if (pd) pd.textContent = '₹' + price;
+  const m = document.getElementById('calc-margin');
+  if (m) m.textContent = '₹' + margin;
+  const b = document.getElementById('calc-breakeven');
+  if (b) b.textContent = breakeven;
+  const mp = document.getElementById('calc-maxprofit');
+  if (mp) mp.textContent = '₹' + fmt(maxProfit);
+}
+
+function updateLockInButton() {
+  const btn = document.getElementById('lock-in-btn');
+  if (!btn) return;
+  const submitted = state.studentLocal.submitted;
+  const badge = document.getElementById('submitted-badge');
+  if (submitted) {
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Decision Locked In · Update';
+    btn.classList.remove('btn-primary'); btn.classList.add('btn-success');
+    if (badge) badge.innerHTML = '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">✓ Submitted</span>';
+  } else {
+    btn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Lock In Decision';
+    btn.classList.add('btn-primary'); btn.classList.remove('btn-success');
+    if (badge) badge.innerHTML = '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">⚠ Not submitted</span>';
+  }
+  lucide.createIcons();
+}
+
+function wireDecisionConsole() {
+  const slider = document.getElementById('price-slider');
+  if (slider) {
+    slider.addEventListener('input', e => {
+      state.studentLocal.price = parseInt(e.target.value);
+      updateCalculator();
+    });
+  }
+  document.querySelectorAll('.cap-card').forEach(card => {
+    card.addEventListener('click', () => {
+      state.studentLocal.capacity = parseInt(card.dataset.capacity);
+      document.querySelectorAll('.cap-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      updateCalculator();
+    });
+  });
+  const btn = document.getElementById('lock-in-btn');
+  if (btn) btn.addEventListener('click', submitDecision);
+}
+
+async function submitDecision() {
+  if (!state.room || state.room.status === 'FINISHED') return;
+  const round = state.room.round;
+  try {
+    await db.ref(`rooms/${state.gameCode}/decisions/${round}/${state.playerId}`).set({
+      price: state.studentLocal.price,
+      capacity: state.studentLocal.capacity,
+      submittedAt: Date.now()
+    });
+    state.studentLocal.submitted = true;
+    updateLockInButton();
+    toast('Decision locked in', 'success');
+  } catch (e) {
+    toast('Failed to submit: ' + e.message, 'error');
+  }
+}
+
+function attachChat(pod) {
+  if (!pod || state.chatAttachedPod === pod) return;
+  if (state.chatListener) state.chatListener.off();
+  state.chatAttachedPod = pod;
+  const container = document.getElementById('chat-messages');
+  if (container) container.innerHTML = '';
+  state.chatListener = db.ref(`rooms/${state.gameCode}/chat/${pod}`);
+  state.chatListener.on('child_added', snap => {
+    const msg = snap.val();
+    if (!msg) return;
+    const box = document.getElementById('chat-messages');
+    if (!box) return;
+    const isMe = msg.playerId === state.playerId;
+    const div = document.createElement('div');
+    div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+    div.innerHTML = `<div class="text-[10px] ${isMe ? 'text-emerald-400' : 'text-slate-400'} mb-0.5 px-1">${esc(msg.name)}</div>
+      <div class="px-3 py-1.5 rounded-lg max-w-[80%] text-sm ${isMe ? 'bg-emerald-600/80 text-white' : 'bg-slate-800 text-slate-200'}">${esc(msg.text)}</div>`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  const input = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
+  const send = async () => {
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    const me = state.room.players?.[state.playerId];
+    await db.ref(`rooms/${state.gameCode}/chat/${pod}`).push({
+      playerId: state.playerId, name: me?.name || 'You', text, ts: Date.now()
+    });
+  };
+  if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+  if (sendBtn) sendBtn.addEventListener('click', send);
+}
+
+/* ============================ INSTRUCTOR RENDER ============================ */
+function renderInstructor() {
+  const r = state.room;
+  if (!r) return;
+  renderInstructorHeader();
+  renderInstructorMain();
+  renderInstructorCharts();
+  lucide.createIcons();
+}
+
+function renderInstructorHeader() {
+  const r = state.room;
+  const status = r.status || 'LOBBY';
+  const statusMeta = {
+    LOBBY: { label: 'Lobby', cls: 'phase-2', icon: 'users' },
+    ACTIVE: { label: `Round ${r.round} / ${TOTAL_ROUNDS}`, cls: getPhase(r.round) === 1 ? 'phase-1' : getPhase(r.round) === 2 ? 'phase-2' : 'phase-3', icon: 'activity' },
+    FINISHED: { label: 'Finished', cls: 'phase-3', icon: 'flag' }
+  }[status];
+
+  document.getElementById('instructor-header').innerHTML = `
+    <div class="border-b border-slate-800 bg-slate-950/70 backdrop-blur sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div class="w-9 h-9 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center"><i data-lucide="presentation" class="w-4 h-4 text-indigo-400"></i></div>
+        <div class="min-w-0">
+          <div class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Instructor Console</div>
+          <div class="font-mono font-black text-lg tracking-widest text-white">${esc(state.gameCode)}</div>
+        </div>
+        <div class="ml-auto flex items-center gap-2 flex-wrap">
+          <span class="phase-pill ${statusMeta.cls}"><i data-lucide="${statusMeta.icon}" class="w-3 h-3"></i>${statusMeta.label}</span>
+          <button id="copy-student-link" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"><i data-lucide="link" class="w-3.5 h-3.5"></i>Student Link</button>
+          <button id="copy-teacher-link" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition"><i data-lucide="bookmark" class="w-3.5 h-3.5"></i>Teacher Link</button>
+          <button id="leave-btn" class="px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 border border-red-600/40 text-red-300 text-xs font-semibold flex items-center gap-1.5 transition"><i data-lucide="log-out" class="w-3.5 h-3.5"></i>Leave</button>
+        </div>
+      </div>
+    </div>`;
+  lucide.createIcons();
+
+  document.getElementById('copy-student-link').addEventListener('click', () => {
+    const url = location.origin + location.pathname + '?room=' + state.gameCode;
+    navigator.clipboard.writeText(url).then(() => toast('Student link copied', 'success')).catch(() => toast('Copy failed', 'error'));
+  });
+  document.getElementById('copy-teacher-link').addEventListener('click', () => {
+    const url = location.origin + location.pathname + '?room=' + state.gameCode + '&host=1';
+    navigator.clipboard.writeText(url).then(() => toast('Teacher link copied — bookmark it!', 'success')).catch(() => toast('Copy failed', 'error'));
+  });
+  document.getElementById('leave-btn').addEventListener('click', leaveSession);
+}
+
+function renderInstructorMain() {
+  const r = state.room;
+  const main = document.getElementById('instructor-main');
+  const players = r.players || {};
+  const humanCount = Object.values(players).filter(p => !p.isBot).length;
+
+  /* Submitted count */
+  const decisions = r.decisions?.[r.round] || {};
+  let submitted = 0;
+  for (const [pid, p] of Object.entries(players)) {
+    if (!p.isBot && p.pod && decisions[pid]) submitted++;
+  }
+  const totalHumansAssigned = Object.values(players).filter(p => !p.isBot && p.pod).length;
+
+  const canStart = r.status === 'LOBBY' && humanCount >= 2;
+  const canResolve = r.status === 'ACTIVE';
+
+  main.innerHTML = `
+    <!-- Control Bar -->
+    <div class="glass-card p-4 animate-fade-up">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button id="start-btn" class="btn-primary px-4 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-2" ${canStart ? '' : 'disabled'}>
+          <i data-lucide="play" class="w-4 h-4"></i>Assign Pods &amp; Start
+        </button>
+        <button id="resolve-btn" class="btn-success px-4 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-2" ${canResolve ? '' : 'disabled'}>
+          <i data-lucide="check-circle" class="w-4 h-4"></i>Resolve Round ${r.round || 0}
+          ${canResolve ? `<span class="ml-1 px-2 py-0.5 rounded-full bg-black/20 text-[11px] font-bold">${submitted}/${totalHumansAssigned}</span>` : ''}
+        </button>
+        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-800">
+          <span class="text-xs font-semibold text-slate-300">Demand Shock (−30%)</span>
+          <label class="toggle"><input type="checkbox" id="shock-toggle" ${r.demandShock ? 'checked' : ''}><span class="slider"></span></label>
+        </div>
+        <button id="export-btn" class="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-semibold flex items-center gap-2 transition" ${Object.keys(r.results || {}).length ? '' : 'disabled'}>
+          <i data-lucide="download" class="w-4 h-4"></i>Export CSV
+        </button>
+        <div class="ml-auto flex items-center gap-2 text-xs text-slate-400">
+          <span class="px-2 py-1 rounded-full bg-slate-800 border border-slate-700"><strong class="text-white">${humanCount}</strong> joined</span>
+          ${r.status !== 'LOBBY' ? `<span class="px-2 py-1 rounded-full bg-slate-800 border border-slate-700"><strong class="text-white">${new Set(Object.values(players).map(p => p.pod).filter(Boolean)).size}</strong> pods</span>` : ''}
+        </div>
+      </div>
+      ${r.status === 'FINISHED' ? '<div class="mt-3 text-sm text-emerald-300 flex items-center gap-2"><i data-lucide="flag" class="w-4 h-4"></i> Simulation finished. Export the dataset or leave the session.</div>' : ''}
+    </div>
+
+    <!-- Roster -->
+    <div class="glass-card p-4">
+      <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="users" class="w-4 h-4 text-indigo-400"></i> ${r.status === 'LOBBY' ? 'Live Lobby Roster' : 'Pod Assignments'}</h3>
+      <div id="roster-container">${rosterHTML()}</div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="glass-card p-4">
+        <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4 text-indigo-400"></i> Class Trends</h3>
+        <div class="h-64"><canvas id="chart-instructor-trends"></canvas></div>
+      </div>
+      <div class="glass-card p-4">
+        <h3 class="font-semibold text-sm mb-3 flex items-center gap-2"><i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> Top 10 Leaderboard</h3>
+        <div class="h-64"><canvas id="chart-instructor-leaderboard"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  lucide.createIcons();
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('resolve-btn').addEventListener('click', resolveRound);
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+  document.getElementById('shock-toggle').addEventListener('change', toggleShock);
+}
+
+function rosterHTML() {
+  const r = state.room;
+  const players = r.players || {};
+  const list = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+  if (list.length === 0) return `<div class="text-center text-sm text-slate-500 py-6">No students have joined yet. Share the Student Link.</div>`;
+
+  if (r.status === 'LOBBY') {
+    return `<div class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+      ${list.filter(p => !p.isBot).map(p => `
+        <div class="rounded-lg bg-slate-900/60 border border-slate-800 px-3 py-2 animate-fade-up">
+          <div class="font-semibold text-sm truncate">${esc(p.name)}</div>
+          <div class="text-[11px] text-slate-500 font-mono">${esc(p.rollNumber)}</div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  const pods = {};
+  list.forEach(p => { if (p.pod) { (pods[p.pod] = pods[p.pod] || []).push(p); } });
+  return `<div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+    ${Object.entries(pods).sort((a, b) => +a[0] - +b[0]).map(([pod, members]) => `
+      <div class="rounded-xl bg-slate-900/60 border border-slate-800 p-3">
+        <div class="text-xs uppercase tracking-wide font-bold text-indigo-300 mb-2">Pod ${pod}</div>
+        <div class="space-y-1">
+          ${members.map(m => `
+            <div class="flex items-center gap-2 text-sm">
+              <span class="w-1.5 h-1.5 rounded-full ${m.isBot ? 'bg-slate-500' : 'bg-emerald-400'}"></span>
+              <span class="truncate ${m.id === state.playerId ? 'text-emerald-300' : 'text-slate-300'}">${esc(m.name)}</span>
+              ${m.isBot ? '<span class="text-[9px] text-slate-500 ml-auto">BOT</span>' : `<span class="text-[10px] text-slate-500 font-mono ml-auto">${esc(m.rollNumber)}</span>`}
+            </div>`).join('')}
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderInstructorCharts() {
+  const r = state.room;
+  const players = r.players || {};
+  const results = r.results || {};
+  const rounds = Object.keys(results).map(Number).sort((a, b) => a - b);
+  const labels = rounds.map(x => 'R' + x);
+
+  /* Trends: average price + average utilization */
+  const avgPrice = [], avgUtil = [];
+  for (const rd of rounds) {
+    const res = results[rd] || {};
+    const list = Object.values(res);
+    if (list.length === 0) { avgPrice.push(0); avgUtil.push(0); continue; }
+    avgPrice.push(+(list.reduce((s, x) => s + x.price, 0) / list.length).toFixed(1));
+    avgUtil.push(Math.round(list.reduce((s, x) => s + (x.capacity ? x.sales / x.capacity * 100 : 0), 0) / list.length));
+  }
+  const trendHash = hashData({ rounds, avgPrice, avgUtil, round: r.round });
+  updateChart('chart-instructor-trends', trendHash, () => ({
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Avg Price (₹)', data: avgPrice, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.15)', tension: .35, fill: true, pointBackgroundColor: '#6366f1', pointRadius: 4, yAxisID: 'y' },
+        { label: 'Avg Utilization %', data: avgUtil, borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.1)', tension: .35, fill: true, pointBackgroundColor: '#34d399', pointRadius: 4, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      ...chartOptsBase,
+      scales: {
+        ...chartOptsBase.scales,
+        y: { ...chartOptsBase.scales.y, position: 'left', ticks: { ...chartOptsBase.scales.y.ticks, callback: v => '₹' + v } },
+        y1: { position: 'right', min: 0, max: 100, ticks: { ...chartOptsBase.scales.y.ticks, callback: v => v + '%' }, grid: { display: false } }
+      }
+    }
+  }));
+
+  /* Leaderboard: top 10 by cumulative profit */
+  const totals = [];
+  for (const [pid, p] of Object.entries(players)) {
+    let sum = 0;
+    for (const rd of rounds) sum += results[rd]?.[pid]?.profit || 0;
+    totals.push({ name: p.name + (p.isBot ? ' [BOT]' : ''), profit: sum, isBot: p.isBot });
+  }
+  totals.sort((a, b) => b.profit - a.profit);
+  const top = totals.slice(0, 10);
+  const lbHash = hashData({ top, round: r.round });
+  updateChart('chart-instructor-leaderboard', lbHash, () => ({
+    type: 'bar',
+    data: {
+      labels: top.map(t => t.name.length > 14 ? t.name.slice(0, 14) + '…' : t.name),
+      datasets: [{
+        label: 'Cumulative Profit (₹)',
+        data: top.map(t => t.profit),
+        backgroundColor: top.map(t => t.isBot ? 'rgba(100,116,139,.6)' : 'rgba(52,211,153,.7)'),
+        borderColor: top.map(t => t.isBot ? '#64748b' : '#34d399'),
+        borderWidth: 1, borderRadius: 6
+      }]
+    },
+    options: {
+      ...chartOptsBase,
+      indexAxis: 'y',
+      plugins: { ...chartOptsBase.plugins, legend: { display: false } },
+      scales: {
+        x: { ...chartOptsBase.scales.x, ticks: { ...chartOptsBase.scales.x.ticks, callback: v => '₹' + v } },
+        y: { ...chartOptsBase.scales.y, grid: { display: false } }
+      }
+    }
+  }));
+}
+
+/* ============================ GAME ENGINE ============================ */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function startGame() {
+  const r = state.room;
+  const players = r.players || {};
+  const humans = Object.keys(players).filter(id => !players[id].isBot);
+  if (humans.length < 2) return toast('Need at least 2 students to start', 'error');
+
+  const shuffled = shuffle(humans);
+  const updates = {};
+  let podNum = 1, botIdx = 0;
+
+  for (let i = 0; i < shuffled.length; i += 4) {
+    const group = shuffled.slice(i, i + 4);
+    group.forEach(id => { updates[`players/${id}/pod`] = podNum; });
+    const botsNeeded = 4 - group.length;
+    for (let b = 0; b < botsNeeded; b++) {
+      botIdx++;
+      const botId = `bot_${podNum}_${b}_${Date.now().toString(36)}`;
+      updates[`players/${botId}`] = {
+        name: `AI_Firm_${botIdx}`, rollNumber: '—', isBot: true, pod: podNum, joinedAt: Date.now()
+      };
+    }
+    podNum++;
+  }
+
+  updates['status'] = 'ACTIVE';
+  updates['round'] = 1;
+  updates['demandShock'] = false;
+
+  try {
+    await db.ref(`rooms/${state.gameCode}`).update(updates);
+    toast(`Game started · ${podNum - 1} pods created`, 'success');
+  } catch (e) {
+    toast('Failed to start: ' + e.message, 'error');
+  }
+}
+
+async function resolveRound() {
+  const code = state.gameCode;
+  const snap = await db.ref(`rooms/${code}`).once('value');
+  const r = snap.val();
+  if (!r || r.status !== 'ACTIVE') return toast('No active round to resolve', 'warn');
+
+  const round = r.round;
+  const players = r.players || {};
+  const decisions = (r.decisions && r.decisions[round]) || {};
+  const prevDecisions = (r.decisions && r.decisions[round - 1]) || {};
+  const multiplier = r.demandShock ? 0.7 : 1.0;
+
+  /* Group by pod */
+  const pods = {};
+  for (const [pid, p] of Object.entries(players)) {
+    if (!p.pod) continue;
+    (pods[p.pod] = pods[p.pod] || []).push(pid);
+  }
+
+  const results = {};
+  const decisionBackfill = {};
+
+  for (const [podNum, members] of Object.entries(pods)) {
+    const podDecisions = {};
+    for (const pid of members) {
+      const p = players[pid];
+      let d = decisions[pid];
+      if (!d) {
+        if (p.isBot) {
+          const priceOpts = [22, 26, 30, 34];
+          d = { price: priceOpts[Math.floor(Math.random() * priceOpts.length)], capacity: 150 };
+        } else if (prevDecisions[pid]) {
+          d = { price: prevDecisions[pid].price, capacity: prevDecisions[pid].capacity };
+        } else {
+          d = { price: 30, capacity: 150 };
+        }
+        decisionBackfill[`decisions/${round}/${pid}`] = { ...d, auto: true };
+      }
+      podDecisions[pid] = d;
+    }
+
+    /* Logit shares with outside option */
+    const U0 = Math.exp(-0.12 * WALK_AWAY_PRICE);
+    let sumA = U0;
+    const attrs = {};
+    for (const pid of members) {
+      const A = Math.exp(-0.12 * podDecisions[pid].price);
+      attrs[pid] = A;
+      sumA += A;
+    }
+
+    for (const pid of members) {
+      const d = podDecisions[pid];
+      const share = attrs[pid] / sumA;
+      const demand = Math.round(share * MARKET_SIZE * multiplier);
+      const sales = Math.min(demand, d.capacity);
+      const fixed = fixedCostFor(d.capacity);
+      const profit = Math.round((d.price - UNIT_COST) * sales - fixed);
+      results[pid] = {
+        pod: parseInt(podNum),
+        price: d.price,
+        capacity: d.capacity,
+        share: +share.toFixed(4),
+        demand,
+        sales,
+        profit
+      };
+    }
+  }
+
+  const updates = { ...decisionBackfill };
+  updates[`results/${round}`] = results;
+
+  if (round >= TOTAL_ROUNDS) {
+    updates['status'] = 'FINISHED';
+  } else {
+    updates['round'] = round + 1;
+  }
+
+  try {
+    await db.ref(`rooms/${code}`).update(updates);
+    toast(round >= TOTAL_ROUNDS ? 'Final round resolved — simulation complete' : `Round ${round} resolved`, 'success');
+  } catch (e) {
+    toast('Failed to resolve: ' + e.message, 'error');
+  }
+}
+
+async function toggleShock(e) {
+  const on = e.target.checked;
+  try {
+    await db.ref(`rooms/${state.gameCode}/demandShock`).set(on);
+    toast(on ? 'Demand shock activated (−30%)' : 'Demand shock removed', on ? 'warn' : 'info');
+  } catch (err) {
+    toast('Failed: ' + err.message, 'error');
+  }
+}
+
+function exportCSV() {
+  const r = state.room;
+  const players = r.players || {};
+  const results = r.results || {};
+  const rows = [['Round', 'Pod', 'Player', 'Name', 'Roll', 'Price', 'Capacity', 'Demand', 'Sales', 'Share', 'Profit']];
+  const rounds = Object.keys(results).map(Number).sort((a, b) => a - b);
+  for (const rd of rounds) {
+    const roundRes = results[rd];
+    const entries = Object.entries(roundRes).map(([pid, res]) => ({ pid, ...res })).sort((a, b) => (a.pod - b.pod) || a.pid.localeCompare(b.pid));
+    for (const e of entries) {
+      const p = players[e.pid] || {};
+      rows.push([rd, e.pod, p.isBot ? 'BOT' : 'HUMAN', (p.name || '').replace(/,/g, ' '), p.rollNumber || '', e.price, e.capacity, e.demand, e.sales, (e.share || 0).toFixed(4), e.profit]);
+    }
+  }
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `oligopoly_${state.gameCode}_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Dataset exported', 'success');
+}
+
+/* ============================ BOOTSTRAP ============================ */
+async function bootstrap() {
+  lucide.createIcons();
+
+  /* Wire landing buttons */
+  document.getElementById('join-btn').addEventListener('click', joinGame);
+  document.getElementById('create-btn').addEventListener('click', createGame);
+  document.getElementById('resume-btn').addEventListener('click', () => {
+    const code = (document.getElementById('resume-code').value || '').trim().toUpperCase();
+    if (!code) return toast('Enter a game code', 'error');
+    enterInstructor(code);
+  });
+  ['join-code', 'resume-code'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase(); });
+  });
+
+  /* URL + storage routing */
+  const params = new URLSearchParams(location.search);
+  const urlRoom = params.get('room');
+  const urlHost = params.get('host') === '1';
+  const storedCode = localStorage.getItem('sim_gameCode');
+  const storedPlayer = localStorage.getItem('sim_playerId');
+
+  if (urlRoom && urlHost) {
+    enterInstructor(urlRoom.toUpperCase());
+  } else if (urlRoom && storedCode === urlRoom.toUpperCase() && storedPlayer) {
+    enterStudent(urlRoom.toUpperCase(), storedPlayer);
+  } else if (urlRoom) {
+    renderLanding({ room: urlRoom.toUpperCase() });
+    showView('landing');
+  } else if (storedCode && storedPlayer) {
+    enterStudent(storedCode, storedPlayer);
+  } else {
+    renderLanding();
+    showView('landing');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', bootstrap);
+</script>
+</body>
+</html>
